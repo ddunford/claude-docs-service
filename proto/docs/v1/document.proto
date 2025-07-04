@@ -1,0 +1,337 @@
+syntax = "proto3";
+
+package docs.v1;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
+
+option go_package = "github.com/platform/document-service/proto/docs/v1";
+
+// Document service definition
+service DocumentService {
+  // Upload a document to storage
+  rpc UploadDocument(UploadRequest) returns (UploadResponse);
+  
+  // Fetch document metadata and content
+  rpc GetDocument(DocumentIdRequest) returns (DocumentResponse);
+  
+  // Soft delete document (archival policy)
+  rpc DeleteDocument(DocumentIdRequest) returns (google.protobuf.Empty);
+  
+  // Trigger AV scan, returns status
+  rpc ScanDocument(DocumentIdRequest) returns (ScanResult);
+  
+  // List documents by owner, tags, etc.
+  rpc ListDocuments(ListRequest) returns (DocumentListResponse);
+}
+
+// Request message for document upload
+message UploadRequest {
+  // Document metadata
+  DocumentMetadata metadata = 1;
+  
+  // Document content as bytes
+  bytes content = 2;
+  
+  // Content type (MIME type)
+  string content_type = 3;
+  
+  // Original filename
+  string filename = 4;
+  
+  // Upload session ID for tracking
+  string session_id = 5;
+}
+
+// Response message for document upload
+message UploadResponse {
+  // Generated document ID
+  string document_id = 1;
+  
+  // Upload status
+  UploadStatus status = 2;
+  
+  // Storage location information
+  StorageLocation location = 3;
+  
+  // Upload timestamp
+  google.protobuf.Timestamp uploaded_at = 4;
+  
+  // File size in bytes
+  int64 size_bytes = 5;
+  
+  // Checksum of the uploaded file
+  string checksum = 6;
+}
+
+// Request message for document operations by ID
+message DocumentIdRequest {
+  // Document ID
+  string document_id = 1;
+  
+  // User ID for authorization
+  string user_id = 2;
+  
+  // Tenant ID for multi-tenancy
+  string tenant_id = 3;
+}
+
+// Response message for document retrieval
+message DocumentResponse {
+  // Document metadata
+  DocumentMetadata metadata = 1;
+  
+  // Document content (optional, based on request)
+  bytes content = 2;
+  
+  // Storage location information
+  StorageLocation location = 3;
+  
+  // Version history
+  repeated VersionHistory versions = 4;
+  
+  // Last scan result
+  ScanResult last_scan = 5;
+}
+
+// Document metadata structure
+message DocumentMetadata {
+  // Document ID
+  string document_id = 1;
+  
+  // Original filename
+  string filename = 2;
+  
+  // Content type (MIME type)
+  string content_type = 3;
+  
+  // File size in bytes
+  int64 size_bytes = 4;
+  
+  // Owner user ID
+  string owner_id = 5;
+  
+  // Tenant ID for multi-tenancy
+  string tenant_id = 6;
+  
+  // Document tags
+  repeated string tags = 7;
+  
+  // Document title
+  string title = 8;
+  
+  // Document description
+  string description = 9;
+  
+  // Creation timestamp
+  google.protobuf.Timestamp created_at = 10;
+  
+  // Last updated timestamp
+  google.protobuf.Timestamp updated_at = 11;
+  
+  // Document version
+  int32 version = 12;
+  
+  // Document status
+  DocumentStatus status = 13;
+  
+  // Checksum of the document content
+  string checksum = 14;
+  
+  // Additional metadata as key-value pairs
+  map<string, string> attributes = 15;
+}
+
+// Storage location information
+message StorageLocation {
+  // Storage backend type
+  StorageBackend backend = 1;
+  
+  // Bucket name
+  string bucket = 2;
+  
+  // Object key/path
+  string key = 3;
+  
+  // Storage region
+  string region = 4;
+  
+  // Endpoint URL (for MinIO/S3-compatible)
+  string endpoint_url = 5;
+}
+
+// Version history entry
+message VersionHistory {
+  // Version number
+  int32 version = 1;
+  
+  // Version timestamp
+  google.protobuf.Timestamp created_at = 2;
+  
+  // User who created this version
+  string created_by = 3;
+  
+  // Version description/comment
+  string description = 4;
+  
+  // File size for this version
+  int64 size_bytes = 5;
+  
+  // Checksum for this version
+  string checksum = 6;
+  
+  // Storage location for this version
+  StorageLocation location = 7;
+}
+
+// Virus scan result
+message ScanResult {
+  // Scan ID
+  string scan_id = 1;
+  
+  // Document ID that was scanned
+  string document_id = 2;
+  
+  // Scan status
+  ScanStatus status = 3;
+  
+  // Scan result (clean, infected, etc.)
+  ScanResultType result = 4;
+  
+  // Scan timestamp
+  google.protobuf.Timestamp scanned_at = 5;
+  
+  // Scan duration in milliseconds
+  int64 duration_ms = 6;
+  
+  // Threat details (if any)
+  repeated ThreatDetail threats = 7;
+  
+  // Scanner version/engine info
+  string scanner_version = 8;
+}
+
+// Threat detail information
+message ThreatDetail {
+  // Threat name/signature
+  string name = 1;
+  
+  // Threat type
+  string type = 2;
+  
+  // Threat severity
+  ThreatSeverity severity = 3;
+  
+  // Additional threat information
+  string description = 4;
+}
+
+// Request message for listing documents
+message ListRequest {
+  // User ID for filtering
+  string user_id = 1;
+  
+  // Tenant ID for filtering
+  string tenant_id = 2;
+  
+  // Tag filters
+  repeated string tags = 3;
+  
+  // Status filter
+  DocumentStatus status = 4;
+  
+  // Pagination offset
+  int32 offset = 5;
+  
+  // Pagination limit
+  int32 limit = 6;
+  
+  // Sort field
+  string sort_by = 7;
+  
+  // Sort order
+  SortOrder sort_order = 8;
+  
+  // Date range filter
+  DateRange date_range = 9;
+}
+
+// Response message for listing documents
+message DocumentListResponse {
+  // List of documents
+  repeated DocumentMetadata documents = 1;
+  
+  // Total count (for pagination)
+  int32 total_count = 2;
+  
+  // Has more results
+  bool has_more = 3;
+  
+  // Next pagination token
+  string next_token = 4;
+}
+
+// Date range filter
+message DateRange {
+  // Start date
+  google.protobuf.Timestamp start_date = 1;
+  
+  // End date
+  google.protobuf.Timestamp end_date = 2;
+}
+
+// Enums
+enum UploadStatus {
+  UPLOAD_STATUS_UNKNOWN = 0;
+  UPLOAD_STATUS_PENDING = 1;
+  UPLOAD_STATUS_PROCESSING = 2;
+  UPLOAD_STATUS_COMPLETED = 3;
+  UPLOAD_STATUS_FAILED = 4;
+}
+
+enum DocumentStatus {
+  DOCUMENT_STATUS_UNKNOWN = 0;
+  DOCUMENT_STATUS_ACTIVE = 1;
+  DOCUMENT_STATUS_ARCHIVED = 2;
+  DOCUMENT_STATUS_DELETED = 3;
+  DOCUMENT_STATUS_PROCESSING = 4;
+  DOCUMENT_STATUS_QUARANTINED = 5;
+}
+
+enum StorageBackend {
+  STORAGE_BACKEND_UNKNOWN = 0;
+  STORAGE_BACKEND_S3 = 1;
+  STORAGE_BACKEND_MINIO = 2;
+  STORAGE_BACKEND_GCS = 3;
+  STORAGE_BACKEND_AZURE = 4;
+}
+
+enum ScanStatus {
+  SCAN_STATUS_UNKNOWN = 0;
+  SCAN_STATUS_PENDING = 1;
+  SCAN_STATUS_SCANNING = 2;
+  SCAN_STATUS_COMPLETED = 3;
+  SCAN_STATUS_FAILED = 4;
+}
+
+enum ScanResultType {
+  SCAN_RESULT_TYPE_UNKNOWN = 0;
+  SCAN_RESULT_TYPE_CLEAN = 1;
+  SCAN_RESULT_TYPE_INFECTED = 2;
+  SCAN_RESULT_TYPE_SUSPICIOUS = 3;
+  SCAN_RESULT_TYPE_ERROR = 4;
+}
+
+enum ThreatSeverity {
+  THREAT_SEVERITY_UNKNOWN = 0;
+  THREAT_SEVERITY_LOW = 1;
+  THREAT_SEVERITY_MEDIUM = 2;
+  THREAT_SEVERITY_HIGH = 3;
+  THREAT_SEVERITY_CRITICAL = 4;
+}
+
+enum SortOrder {
+  SORT_ORDER_UNKNOWN = 0;
+  SORT_ORDER_ASC = 1;
+  SORT_ORDER_DESC = 2;
+}
