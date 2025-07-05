@@ -26,9 +26,9 @@ install:
 
 # Start development environment
 dev:
-	docker-compose up -d postgres redis minio rabbitmq clamav jaeger
+	docker compose up -d postgres redis minio rabbitmq clamav jaeger
 	sleep 10
-	docker-compose up minio-init
+	docker compose up minio-init
 	@echo "Development services started. Run 'make run' to start the application."
 
 # Run tests
@@ -47,7 +47,7 @@ format:
 
 # Clean up
 clean:
-	docker-compose down -v
+	docker compose down -v
 	docker system prune -f
 	rm -rf .pytest_cache
 	rm -rf htmlcov
@@ -57,7 +57,7 @@ clean:
 
 # Build Docker image
 build:
-	docker-compose build
+	docker compose build
 
 # Run application
 run:
@@ -65,11 +65,11 @@ run:
 
 # Stop application
 stop:
-	docker-compose stop
+	docker compose stop
 
 # View logs
 logs:
-	docker-compose logs -f app
+	docker compose logs -f app
 
 # Run database migrations
 migrate:
@@ -94,11 +94,11 @@ ci: lint test
 
 # Docker development
 docker-dev:
-	docker-compose up --build
+	docker compose up --build
 
 # Docker production
 docker-prod:
-	docker-compose -f docker-compose.yml -f docker-compose.prod.yml up --build
+	docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build
 
 # Health check
 health:

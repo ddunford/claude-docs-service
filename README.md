@@ -80,16 +80,16 @@ A comprehensive document storage microservice built with FastAPI, gRPC, and mode
 
 ```bash
 # Start all services
-docker-compose up --build
+docker compose up --build
 
 # Start in background
-docker-compose up -d --build
+docker compose up -d --build
 
 # View logs
-docker-compose logs -f app
+docker compose logs -f app
 
 # Stop services
-docker-compose down
+docker compose down
 ```
 
 ## 📚 API Documentation

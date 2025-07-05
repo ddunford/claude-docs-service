@@ -268,7 +268,7 @@ jobs:
 
       - name: Build and start services
         run: |
-          docker-compose -f docker-compose.yml up -d --build
+          docker compose -f docker-compose.yml up -d --build
           sleep 30
 
       - name: Install k6
@@ -283,7 +283,7 @@ jobs:
           k6 run --vus 10 --duration 30s tests/performance/load_test.js || true
 
       - name: Cleanup
-        run: docker-compose down
+        run: docker compose down
 
   # Build summary
   build-summary:
