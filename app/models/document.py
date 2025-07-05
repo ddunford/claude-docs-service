@@ -9,11 +9,11 @@ from pydantic import BaseModel, Field, validator
 
 class DocumentStatus(str, Enum):
     """Document status enumeration."""
-    ACTIVE = "active"
-    ARCHIVED = "archived"
-    DELETED = "deleted"
-    PROCESSING = "processing"
-    QUARANTINED = "quarantined"
+    ACTIVE = "ACTIVE"
+    ARCHIVED = "ARCHIVED"
+    DELETED = "DELETED"
+    PROCESSING = "PROCESSING"
+    QUARANTINED = "QUARANTINED"
 
 
 class StorageBackend(str, Enum):

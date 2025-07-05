@@ -259,7 +259,7 @@ class ClamAVScanner:
                     timeout=10.0,
                 )
                 
-                return response.decode('utf-8').strip()
+                return response.decode('utf-8').strip().replace('\x00', '')
                 
             finally:
                 writer.close()

@@ -476,7 +476,7 @@ async def list_documents(
             # Simple query to get documents
             query = select(Document).where(
                 Document.tenant_id == user.tenant_id,
-                Document.status != "deleted"
+                Document.status != DocumentStatus.DELETED
             ).limit(limit).offset(offset)
             
             result = await db.execute(query)
@@ -542,7 +542,7 @@ async def scan_document(
         await event_publisher.publish_document_scanned(
             document_id=document_id,
             scan_id=scan_result.scan_id,
-            result=scan_result.result.value,
+            result=scan_result.result,
             threats=[threat.dict() for threat in scan_result.threats],
             tenant_id=user.tenant_id,
         )
@@ -555,13 +555,13 @@ async def scan_document(
             user.tenant_id,
             user.user_id,
             scan_id=scan_result.scan_id,
-            result=scan_result.result.value,
+            result=scan_result.result,
         )
         
         return {
             "message": "Document scan completed",
             "scan_id": scan_result.scan_id,
-            "result": scan_result.result.value,
+            "result": scan_result.result,
             "threats": [threat.dict() for threat in scan_result.threats],
             "duration_ms": scan_result.duration_ms,
         }
@@ -613,8 +613,8 @@ async def get_scan_result(
         return {
             "scan_id": scan_result.scan_id,
             "document_id": scan_result.document_id,
-            "status": scan_result.status.value,
-            "result": scan_result.result.value if scan_result.result else None,
+            "status": scan_result.status,
+            "result": scan_result.result if scan_result.result else None,
             "scanned_at": scan_result.scanned_at.isoformat() if scan_result.scanned_at else None,
             "duration_ms": scan_result.duration_ms,
             "threats": [threat.dict() for threat in scan_result.threats],

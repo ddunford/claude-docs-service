@@ -7,6 +7,7 @@ from typing import List, Optional, Dict, Any, Tuple
 
 from sqlalchemy import and_, desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.config import settings
 from app.database import get_db
@@ -90,7 +91,7 @@ class DocumentService:
                     description=document_create.description,
                     tags=document_create.tags,
                     attributes=document_create.attributes,
-                    status="active",
+                    status=DocumentStatus.ACTIVE,
                     version=1,
                     created_at=datetime.utcnow(),
                     updated_at=datetime.utcnow(),
@@ -228,11 +229,15 @@ class DocumentService:
         try:
             async with get_db() as db:
                 # Query document with relationships
-                query = select(Document).where(
+                query = select(Document).options(
+                    selectinload(Document.storage_locations),
+                    selectinload(Document.versions),
+                    selectinload(Document.scan_results),
+                ).where(
                     and_(
                         Document.id == document_id,
                         Document.tenant_id == tenant_id,
-                        Document.status != "deleted",
+                        Document.status != DocumentStatus.DELETED,
                     )
                 )
                 
@@ -259,12 +264,12 @@ class DocumentService:
                 
                 # Convert to response model
                 metadata = DocumentMetadata(
-                    document_id=document.id,
+                    document_id=str(document.id),
                     filename=document.filename,
                     content_type=document.content_type,
                     size_bytes=document.size_bytes,
-                    owner_id=document.owner_id,
-                    tenant_id=document.tenant_id,
+                    owner_id=str(document.owner_id),
+                    tenant_id=str(document.tenant_id),
                     tags=document.tags,
                     title=document.title,
                     description=document.description,
@@ -290,7 +295,7 @@ class DocumentService:
                     versions.append(VersionHistory(
                         version=version.version,
                         created_at=version.created_at,
-                        created_by=version.created_by,
+                        created_by=str(version.created_by),
                         description=version.description,
                         size_bytes=version.size_bytes,
                         checksum=version.checksum,
@@ -381,11 +386,13 @@ class DocumentService:
         try:
             async with get_db() as db:
                 # Query document
-                query = select(Document).where(
+                query = select(Document).options(
+                    selectinload(Document.storage_locations),
+                ).where(
                     and_(
                         Document.id == document_id,
                         Document.tenant_id == tenant_id,
-                        Document.status != "deleted",
+                        Document.status != DocumentStatus.DELETED,
                     )
                 )
                 
@@ -401,7 +408,7 @@ class DocumentService:
                     raise PermissionError("Access denied to document")
                 
                 # Soft delete
-                document.status = "deleted"
+                document.status = DocumentStatus.DELETED
                 document.updated_at = datetime.utcnow()
                 
                 # Create audit log
@@ -476,7 +483,7 @@ class DocumentService:
                     and_(
                         Document.id == document_id,
                         Document.tenant_id == tenant_id,
-                        Document.status != "deleted",
+                        Document.status != DocumentStatus.DELETED,
                     )
                 )
                 
@@ -591,7 +598,7 @@ class DocumentService:
                     and_(
                         Document.id == document_id,
                         Document.tenant_id == tenant_id,
-                        Document.status != "deleted",
+                        Document.status != DocumentStatus.DELETED,
                     )
                 )
                 
@@ -691,7 +698,7 @@ class DocumentService:
                 query = select(Document).where(
                     and_(
                         Document.tenant_id == tenant_id,
-                        Document.status != "deleted",
+                        Document.status != DocumentStatus.DELETED,
                     )
                 )
                 
@@ -745,12 +752,12 @@ class DocumentService:
                 document_list = []
                 for doc in documents:
                     metadata = DocumentMetadata(
-                        document_id=doc.id,
+                        document_id=str(doc.id),
                         filename=doc.filename,
                         content_type=doc.content_type,
                         size_bytes=doc.size_bytes,
-                        owner_id=doc.owner_id,
-                        tenant_id=doc.tenant_id,
+                        owner_id=str(doc.owner_id),
+                        tenant_id=str(doc.tenant_id),
                         tags=doc.tags,
                         title=doc.title,
                         description=doc.description,
