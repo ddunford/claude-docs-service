@@ -27,7 +27,7 @@ scrape_configs:
       - targets: ['app:8001']
     scrape_interval: 5s
     metrics_path: /metrics
-    scrape_timeout: 10s
+    scrape_timeout: 4s
 
   # PostgreSQL metrics
   - job_name: 'postgres'
@@ -85,21 +85,6 @@ scrape_configs:
     scrape_interval: 10s
     metrics_path: /metrics
 
-# Recording rules
-recording_rules:
-  - name: document_service_rules
-    rules:
-      - record: document_service:request_rate
-        expr: rate(http_requests_total[5m])
-      
-      - record: document_service:error_rate
-        expr: rate(http_requests_total{status=~"5.."}[5m])
-      
-      - record: document_service:response_time_95th
-        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))
-      
-      - record: document_service:cpu_usage
-        expr: rate(process_cpu_seconds_total[5m])
-      
-      - record: document_service:memory_usage
-        expr: process_resident_memory_bytes
+# Recording rules (optional - can be added in separate files)
+# rule_files:
+#   - "rules.yml"

@@ -90,7 +90,7 @@ class DocumentService:
                     description=document_create.description,
                     tags=document_create.tags,
                     attributes=document_create.attributes,
-                    status=DocumentStatus.ACTIVE,
+                    status="active",
                     version=1,
                     created_at=datetime.utcnow(),
                     updated_at=datetime.utcnow(),
@@ -222,6 +222,7 @@ class DocumentService:
         user_id: str,
         tenant_id: str,
         include_content: bool = False,
+        user_scopes: Optional[List[str]] = None,
     ) -> DocumentResponse:
         """Get a document by ID."""
         try:
@@ -231,7 +232,7 @@ class DocumentService:
                     and_(
                         Document.id == document_id,
                         Document.tenant_id == tenant_id,
-                        Document.status != DocumentStatus.DELETED,
+                        Document.status != "deleted",
                     )
                 )
                 
@@ -241,8 +242,9 @@ class DocumentService:
                 if not document:
                     raise ValueError(f"Document not found: {document_id}")
                 
-                # Check permissions (simple owner check for now)
-                if document.owner_id != user_id:
+                # Check permissions - allow owner or admin users
+                has_admin_access = user_scopes and "doc.admin" in user_scopes
+                if document.owner_id != user_id and not has_admin_access:
                     raise PermissionError("Access denied to document")
                 
                 # Get storage location
@@ -373,6 +375,7 @@ class DocumentService:
         document_id: str,
         user_id: str,
         tenant_id: str,
+        user_scopes: Optional[List[str]] = None,
     ) -> bool:
         """Soft delete a document."""
         try:
@@ -382,7 +385,7 @@ class DocumentService:
                     and_(
                         Document.id == document_id,
                         Document.tenant_id == tenant_id,
-                        Document.status != DocumentStatus.DELETED,
+                        Document.status != "deleted",
                     )
                 )
                 
@@ -392,12 +395,13 @@ class DocumentService:
                 if not document:
                     raise ValueError(f"Document not found: {document_id}")
                 
-                # Check permissions
-                if document.owner_id != user_id:
+                # Check permissions - allow owner or admin users
+                has_admin_access = user_scopes and "doc.admin" in user_scopes
+                if document.owner_id != user_id and not has_admin_access:
                     raise PermissionError("Access denied to document")
                 
                 # Soft delete
-                document.status = DocumentStatus.DELETED
+                document.status = "deleted"
                 document.updated_at = datetime.utcnow()
                 
                 # Create audit log
@@ -457,6 +461,223 @@ class DocumentService:
             
             raise
     
+    async def update_document(
+        self,
+        document_id: str,
+        document_update: DocumentUpdate,
+        user_id: str,
+        tenant_id: str,
+    ) -> DocumentResponse:
+        """Update a document's metadata."""
+        try:
+            async with get_db() as db:
+                # Query document
+                query = select(Document).where(
+                    and_(
+                        Document.id == document_id,
+                        Document.tenant_id == tenant_id,
+                        Document.status != "deleted",
+                    )
+                )
+                
+                result = await db.execute(query)
+                document = result.scalar_one_or_none()
+                
+                if not document:
+                    raise ValueError(f"Document not found: {document_id}")
+                
+                # Check permissions
+                if document.owner_id != user_id:
+                    raise PermissionError("Access denied to document")
+                
+                # Update document fields
+                if document_update.title is not None:
+                    document.title = document_update.title
+                if document_update.description is not None:
+                    document.description = document_update.description
+                if document_update.tags is not None:
+                    document.tags = document_update.tags
+                if document_update.attributes is not None:
+                    document.attributes = document_update.attributes
+                
+                document.updated_at = datetime.utcnow()
+                
+                # Create audit log
+                audit_log = AuditLog(
+                    id=str(uuid.uuid4()),
+                    document_id=document_id,
+                    action="update",
+                    user_id=user_id,
+                    tenant_id=tenant_id,
+                    status="success",
+                    audit_metadata={
+                        "title": document_update.title,
+                        "description": document_update.description,
+                        "tags": document_update.tags,
+                        "attributes": document_update.attributes,
+                    },
+                    created_at=datetime.utcnow(),
+                )
+                
+                db.add(audit_log)
+                await db.commit()
+                
+                # Log event
+                log_document_event(
+                    self.logger,
+                    "document_updated",
+                    document_id,
+                    tenant_id,
+                    user_id,
+                )
+                
+                # Publish event
+                try:
+                    await event_publisher.publish_document_updated(
+                        document_id=document_id,
+                        filename=document.filename,
+                        owner_id=user_id,
+                        tenant_id=tenant_id,
+                        changes={
+                            "title": document_update.title,
+                            "description": document_update.description,
+                            "tags": document_update.tags,
+                            "attributes": document_update.attributes,
+                        },
+                    )
+                except Exception as e:
+                    self.logger.warning(f"Failed to publish update event: {e}")
+                
+                # Return updated document
+                return await self.get_document(
+                    document_id=document_id,
+                    user_id=user_id,
+                    tenant_id=tenant_id,
+                )
+                
+        except Exception as e:
+            self.logger.error(f"Update document failed: {e}")
+            
+            # Log audit failure
+            async with get_db() as db:
+                audit_log = AuditLog(
+                    id=str(uuid.uuid4()),
+                    document_id=document_id,
+                    action="update",
+                    user_id=user_id,
+                    tenant_id=tenant_id,
+                    status="failure",
+                    error_message=str(e),
+                    created_at=datetime.utcnow(),
+                )
+                
+                db.add(audit_log)
+                await db.commit()
+            
+            raise
+    
+    async def get_scan_result(
+        self,
+        document_id: str,
+        scan_id: str,
+        user_id: str,
+        tenant_id: str,
+    ) -> ScanResultModel:
+        """Get a scan result by scan ID."""
+        try:
+            async with get_db() as db:
+                # Query document first to check permissions
+                doc_query = select(Document).where(
+                    and_(
+                        Document.id == document_id,
+                        Document.tenant_id == tenant_id,
+                        Document.status != "deleted",
+                    )
+                )
+                
+                doc_result = await db.execute(doc_query)
+                document = doc_result.scalar_one_or_none()
+                
+                if not document:
+                    raise ValueError(f"Document not found: {document_id}")
+                
+                # Check permissions
+                if document.owner_id != user_id:
+                    raise PermissionError("Access denied to document")
+                
+                # Query scan result
+                from app.models.database import ScanResult, ThreatDetail
+                scan_query = select(ScanResult).where(
+                    and_(
+                        ScanResult.document_id == document_id,
+                        ScanResult.scan_id == scan_id,
+                    )
+                )
+                
+                scan_result = await db.execute(scan_query)
+                scan = scan_result.scalar_one_or_none()
+                
+                if not scan:
+                    raise ValueError(f"Scan result not found: {scan_id}")
+                
+                # Get threats
+                threats = []
+                for threat in scan.threats:
+                    threats.append(ThreatDetail(
+                        name=threat.name,
+                        type=threat.type,
+                        severity=threat.severity,
+                        description=threat.description,
+                    ))
+                
+                # Create audit log
+                audit_log = AuditLog(
+                    id=str(uuid.uuid4()),
+                    document_id=document_id,
+                    action="get_scan_result",
+                    user_id=user_id,
+                    tenant_id=tenant_id,
+                    status="success",
+                    audit_metadata={"scan_id": scan_id},
+                    created_at=datetime.utcnow(),
+                )
+                
+                db.add(audit_log)
+                await db.commit()
+                
+                return ScanResultModel(
+                    scan_id=scan.scan_id,
+                    document_id=scan.document_id,
+                    status=scan.status,
+                    result=scan.result,
+                    scanned_at=scan.completed_at or scan.started_at,
+                    duration_ms=scan.duration_ms or 0,
+                    threats=threats,
+                    scanner_version=scan.scanner_version,
+                )
+                
+        except Exception as e:
+            self.logger.error(f"Get scan result failed: {e}")
+            
+            # Log audit failure
+            async with get_db() as db:
+                audit_log = AuditLog(
+                    id=str(uuid.uuid4()),
+                    document_id=document_id,
+                    action="get_scan_result",
+                    user_id=user_id,
+                    tenant_id=tenant_id,
+                    status="failure",
+                    error_message=str(e),
+                    audit_metadata={"scan_id": scan_id},
+                    created_at=datetime.utcnow(),
+                )
+                
+                db.add(audit_log)
+                await db.commit()
+            
+            raise
+    
     async def list_documents(
         self,
         request: DocumentListRequest,
@@ -470,7 +691,7 @@ class DocumentService:
                 query = select(Document).where(
                     and_(
                         Document.tenant_id == tenant_id,
-                        Document.status != DocumentStatus.DELETED,
+                        Document.status != "deleted",
                     )
                 )
                 

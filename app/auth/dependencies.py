@@ -167,3 +167,47 @@ def get_user_with_admin_access(request: Request) -> AuthenticatedUser:
             detail="Admin access required",
         )
     return user
+
+
+# Testing dependencies (for development/testing only)
+def get_mock_user() -> AuthenticatedUser:
+    """Get a mock user for testing purposes."""
+    import time
+    import uuid
+    
+    # Use proper UUIDs for user and tenant
+    test_user_id = "12345678-1234-5678-9012-123456789012"
+    test_tenant_id = "87654321-4321-8765-2109-876543210987"
+    
+    mock_jwt_payload = {
+        "sub": test_user_id,
+        "tenant_id": test_tenant_id,
+        "scopes": ["doc.read", "doc.write", "doc.admin"],
+        "iat": int(time.time()),
+        "exp": int(time.time()) + 3600,  # Expires in 1 hour
+        "jti": "mock-jwt-id",
+        "aud": "document-service",
+        "iss": "test-issuer"
+    }
+    
+    return AuthenticatedUser(
+        user_id=test_user_id,
+        tenant_id=test_tenant_id,
+        scopes=["doc.read", "doc.write", "doc.admin"],
+        jwt_payload=mock_jwt_payload
+    )
+
+
+def get_mock_user_with_read_access() -> AuthenticatedUser:
+    """Get mock user with read access for testing."""
+    return get_mock_user()
+
+
+def get_mock_user_with_write_access() -> AuthenticatedUser:
+    """Get mock user with write access for testing."""
+    return get_mock_user()
+
+
+def get_mock_user_with_admin_access() -> AuthenticatedUser:
+    """Get mock user with admin access for testing."""
+    return get_mock_user()

@@ -220,6 +220,25 @@ class EventPublisher:
         
         return await self.publish_event("scanned", data)
     
+    async def publish_document_updated(
+        self,
+        document_id: str,
+        filename: str,
+        owner_id: str,
+        tenant_id: str,
+        changes: Dict[str, Any],
+    ) -> bool:
+        """Publish document updated event."""
+        data = {
+            "document_id": document_id,
+            "filename": filename,
+            "owner_id": owner_id,
+            "tenant_id": tenant_id,
+            "changes": changes,
+        }
+        
+        return await self.publish_event("updated", data)
+    
     async def publish_document_deleted(
         self,
         document_id: str,

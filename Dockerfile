@@ -20,8 +20,8 @@ RUN apt-get update && apt-get install -y \
 # Copy requirements file
 COPY pyproject.toml .
 
-# Install Python dependencies
-RUN pip install --no-cache-dir -e .
+# Install Python dependencies including dev/test dependencies
+RUN pip install --no-cache-dir -e .[dev]
 
 # Copy application code
 COPY . .
