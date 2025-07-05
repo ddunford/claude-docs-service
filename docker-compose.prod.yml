@@ -18,30 +18,8 @@ services:
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
     volumes: []  # Remove development volume mounts
     restart: always
-    deploy:
-      replicas: 2
-      resources:
-        limits:
-          cpus: '1.0'
-          memory: 1G
-        reservations:
-          cpus: '0.5'
-          memory: 512M
-      restart_policy:
-        condition: on-failure
-        delay: 5s
-        max_attempts: 3
-        window: 120s
-      update_config:
-        parallelism: 1
-        delay: 10s
-        failure_action: rollback
-        order: start-first
-      rollback_config:
-        parallelism: 1
-        delay: 10s
-        failure_action: pause
-        order: stop-first
+    mem_limit: 1G
+    cpus: 1.0
 
   # Production PostgreSQL with optimized settings
   postgres:
@@ -56,14 +34,8 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./scripts/init_db.sql:/docker-entrypoint-initdb.d/init_db.sql
     restart: always
-    deploy:
-      resources:
-        limits:
-          cpus: '1.0'
-          memory: 1G
-        reservations:
-          cpus: '0.5'
-          memory: 512M
+    mem_limit: 1G
+    cpus: 1.0
     command: >
       postgres 
       -c shared_preload_libraries=pg_stat_statements
@@ -87,14 +59,8 @@ services:
     image: redis:7-alpine
     ports: []  # Remove exposed ports for security
     restart: always
-    deploy:
-      resources:
-        limits:
-          cpus: '0.5'
-          memory: 512M
-        reservations:
-          cpus: '0.25'
-          memory: 256M
+    mem_limit: 512M
+    cpus: 0.5
     command: >
       redis-server
       --maxmemory 256mb
@@ -112,14 +78,8 @@ services:
       - MINIO_BROWSER_REDIRECT_URL=${MINIO_BROWSER_REDIRECT_URL:-http://localhost:9001}
     ports: []  # Remove exposed ports for security
     restart: always
-    deploy:
-      resources:
-        limits:
-          cpus: '0.5'
-          memory: 512M
-        reservations:
-          cpus: '0.25'
-          memory: 256M
+    mem_limit: 512M
+    cpus: 0.5
 
   # Production RabbitMQ with management disabled for security
   rabbitmq:
@@ -130,27 +90,15 @@ services:
       - RABBITMQ_DEFAULT_VHOST=${RABBITMQ_VHOST:-/}
     ports: []  # Remove exposed ports for security
     restart: always
-    deploy:
-      resources:
-        limits:
-          cpus: '0.5'
-          memory: 512M
-        reservations:
-          cpus: '0.25'
-          memory: 256M
+    mem_limit: 512M
+    cpus: 0.5
 
   # Production ClamAV
   clamav:
     ports: []  # Remove exposed ports for security
     restart: always
-    deploy:
-      resources:
-        limits:
-          cpus: '0.5'
-          memory: 2G
-        reservations:
-          cpus: '0.25'
-          memory: 1G
+    mem_limit: 2G
+    cpus: 0.5
 
   # Production Jaeger with sampling
   jaeger:
@@ -161,14 +109,8 @@ services:
       - JAEGER_SAMPLER_PARAM=0.1
     ports: []  # Remove exposed ports for security
     restart: always
-    deploy:
-      resources:
-        limits:
-          cpus: '0.5'
-          memory: 512M
-        reservations:
-          cpus: '0.25'
-          memory: 256M
+    mem_limit: 512M
+    cpus: 0.5
 
   # Production Prometheus with data retention
   prometheus:
@@ -186,14 +128,8 @@ services:
       - '--web.enable-admin-api'
     ports: []  # Remove exposed ports for security
     restart: always
-    deploy:
-      resources:
-        limits:
-          cpus: '0.5'
-          memory: 1G
-        reservations:
-          cpus: '0.25'
-          memory: 512M
+    mem_limit: 1G
+    cpus: 0.5
 
   # Production Grafana with security settings
   grafana:
@@ -209,14 +145,8 @@ services:
       - GF_SNAPSHOTS_EXTERNAL_ENABLED=false
     ports: []  # Remove exposed ports for security
     restart: always
-    deploy:
-      resources:
-        limits:
-          cpus: '0.5'
-          memory: 512M
-        reservations:
-          cpus: '0.25'
-          memory: 256M
+    mem_limit: 512M
+    cpus: 0.5
 
   # Nginx reverse proxy for production
   nginx:
@@ -231,14 +161,8 @@ services:
     depends_on:
       - app
     restart: always
-    deploy:
-      resources:
-        limits:
-          cpus: '0.5'
-          memory: 256M
-        reservations:
-          cpus: '0.25'
-          memory: 128M
+    mem_limit: 256M
+    cpus: 0.5
     networks:
       - document-service
 
@@ -247,5 +171,4 @@ volumes:
 
 networks:
   document-service:
-    driver: overlay
-    attachable: true
+    driver: bridge

@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document Service Test UI</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            background: #2c3e50;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 30px;
+            border-radius: 8px;
+        }
+
+        .section {
+            background: white;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .section h2 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 5px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+
+        input[type="text"], input[type="file"], select, textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        button {
+            background: #3498db;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s;
+        }
+
+        button:hover {
+            background: #2980b9;
+        }
+
+        button:disabled {
+            background: #bdc3c7;
+            cursor: not-allowed;
+        }
+
+        .btn-danger {
+            background: #e74c3c;
+        }
+
+        .btn-danger:hover {
+            background: #c0392b;
+        }
+
+        .btn-warning {
+            background: #f39c12;
+        }
+
+        .btn-warning:hover {
+            background: #e67e22;
+        }
+
+        .result {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .result.success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+
+        .result.error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+
+        .result.info {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .document-item {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+
+        .document-item h4 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+
+        .document-meta {
+            font-size: 12px;
+            color: #6c757d;
+            margin-bottom: 10px;
+        }
+
+        .document-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .document-actions button {
+            flex: 1;
+            min-width: 60px;
+            padding: 5px 10px;
+            font-size: 12px;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 5px;
+        }
+
+        .status-online { background: #27ae60; }
+        .status-offline { background: #e74c3c; }
+        .status-unknown { background: #f39c12; }
+
+        .health-status {
+            background: #ecf0f1;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            color: #3498db;
+        }
+
+        .loading.show {
+            display: block;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+            
+            .grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .document-actions {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Document Service Test UI</h1>
+            <p>Development Testing Interface</p>
+        </div>
+
+        <div class="section">
+            <h2>Service Health</h2>
+            <div id="health-status" class="health-status">
+                <div class="loading show">Checking service health...</div>
+            </div>
+            <button onclick="checkHealth()">Refresh Health Status</button>
+        </div>
+
+        <div class="grid">
+            <div class="section">
+                <h2>Upload Document</h2>
+                <form id="upload-form">
+                    <div class="form-group">
+                        <label for="file-input">Select File:</label>
+                        <input type="file" id="file-input" name="file" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="tenant-id">Tenant ID:</label>
+                        <input type="text" id="tenant-id" name="tenant_id" value="default" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="document-type">Document Type:</label>
+                        <select id="document-type" name="document_type">
+                            <option value="pdf">PDF</option>
+                            <option value="image">Image</option>
+                            <option value="document">Document</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="description">Description (optional):</label>
+                        <textarea id="description" name="description" rows="3" placeholder="Optional description"></textarea>
+                    </div>
+                    <button type="submit">Upload Document</button>
+                </form>
+                <div id="upload-result" class="result" style="display: none;"></div>
+            </div>
+
+            <div class="section">
+                <h2>Document Operations</h2>
+                <div class="form-group">
+                    <label for="document-id">Document ID:</label>
+                    <input type="text" id="document-id" placeholder="Enter document ID">
+                </div>
+                <div class="form-group">
+                    <button onclick="getDocument()">Get Document</button>
+                    <button onclick="downloadDocument()" class="btn-warning">Download</button>
+                    <button onclick="scanDocument()" class="btn-warning">Scan for Viruses</button>
+                    <button onclick="deleteDocument()" class="btn-danger">Delete</button>
+                </div>
+                <div id="document-result" class="result" style="display: none;"></div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Document List</h2>
+            <div class="form-group">
+                <label for="list-tenant-id">Tenant ID:</label>
+                <input type="text" id="list-tenant-id" value="default" placeholder="Enter tenant ID">
+            </div>
+            <div class="form-group">
+                <label for="list-limit">Limit:</label>
+                <input type="text" id="list-limit" value="10" placeholder="Number of documents">
+            </div>
+            <div class="form-group">
+                <button onclick="listDocuments()">List Documents</button>
+                <button onclick="clearDocumentList()">Clear List</button>
+            </div>
+            <div id="document-list-container">
+                <div id="document-list-loading" class="loading">Loading documents...</div>
+                <div id="document-list"></div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>System Information</h2>
+            <div class="form-group">
+                <button onclick="getMetrics()">Get Metrics</button>
+                <button onclick="clearResults()">Clear All Results</button>
+            </div>
+            <div id="metrics-result" class="result" style="display: none;"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '';
+        let authToken = null;
+
+        // Initialize the UI
+        document.addEventListener('DOMContentLoaded', function() {
+            checkHealth();
+            
+            // Setup upload form
+            document.getElementById('upload-form').addEventListener('submit', function(e) {
+                e.preventDefault();
+                uploadDocument();
+            });
+        });
+
+        async function makeRequest(url, options = {}) {
+            const defaultOptions = {
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...options.headers
+                }
+            };
+
+            if (authToken) {
+                defaultOptions.headers['Authorization'] = `Bearer ${authToken}`;
+            }
+
+            const response = await fetch(API_BASE + url, {
+                ...defaultOptions,
+                ...options
+            });
+
+            return response;
+        }
+
+        async function checkHealth() {
+            const statusDiv = document.getElementById('health-status');
+            try {
+                const response = await makeRequest('/api/v1/health');
+                const data = await response.json();
+                
+                if (response.ok) {
+                    statusDiv.innerHTML = `
+                        <div><span class="status-indicator status-online"></span>Service Status: <strong>Online</strong></div>
+                        <div>Version: ${data.version || 'Unknown'}</div>
+                        <div>Timestamp: ${new Date(data.timestamp).toLocaleString()}</div>
+                        <div>Database: <span class="status-indicator ${data.database ? 'status-online' : 'status-offline'}"></span>${data.database ? 'Connected' : 'Disconnected'}</div>
+                        <div>Redis: <span class="status-indicator ${data.redis ? 'status-online' : 'status-offline'}"></span>${data.redis ? 'Connected' : 'Disconnected'}</div>
+                    `;
+                } else {
+                    statusDiv.innerHTML = `<div><span class="status-indicator status-offline"></span>Service Status: <strong>Offline</strong></div>`;
+                }
+            } catch (error) {
+                statusDiv.innerHTML = `<div><span class="status-indicator status-offline"></span>Service Status: <strong>Error</strong> - ${error.message}</div>`;
+            }
+        }
+
+        async function uploadDocument() {
+            const formData = new FormData();
+            const fileInput = document.getElementById('file-input');
+            const tenantId = document.getElementById('tenant-id').value;
+            const documentType = document.getElementById('document-type').value;
+            const description = document.getElementById('description').value;
+
+            if (!fileInput.files[0]) {
+                showResult('upload-result', 'Please select a file to upload.', 'error');
+                return;
+            }
+
+            formData.append('file', fileInput.files[0]);
+            formData.append('tenant_id', tenantId);
+            formData.append('document_type', documentType);
+            if (description) {
+                formData.append('description', description);
+            }
+
+            showResult('upload-result', 'Uploading document...', 'info');
+
+            try {
+                const response = await fetch(API_BASE + '/api/v1/documents/upload', {
+                    method: 'POST',
+                    body: formData,
+                    headers: authToken ? { 'Authorization': `Bearer ${authToken}` } : {}
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showResult('upload-result', `Document uploaded successfully!\nDocument ID: ${data.id}\nFilename: ${data.filename}\nSize: ${data.size} bytes`, 'success');
+                    // Clear form
+                    document.getElementById('upload-form').reset();
+                    // Auto-refresh document list
+                    listDocuments();
+                } else {
+                    showResult('upload-result', `Upload failed: ${data.detail || 'Unknown error'}`, 'error');
+                }
+            } catch (error) {
+                showResult('upload-result', `Upload error: ${error.message}`, 'error');
+            }
+        }
+
+        async function getDocument() {
+            const documentId = document.getElementById('document-id').value;
+            if (!documentId) {
+                showResult('document-result', 'Please enter a document ID.', 'error');
+                return;
+            }
+
+            showResult('document-result', 'Getting document information...', 'info');
+
+            try {
+                const response = await makeRequest(`/api/v1/documents/${documentId}`);
+                const data = await response.json();
+
+                if (response.ok) {
+                    showResult('document-result', JSON.stringify(data, null, 2), 'success');
+                } else {
+                    showResult('document-result', `Failed to get document: ${data.detail || 'Unknown error'}`, 'error');
+                }
+            } catch (error) {
+                showResult('document-result', `Error: ${error.message}`, 'error');
+            }
+        }
+
+        async function downloadDocument() {
+            const documentId = document.getElementById('document-id').value;
+            if (!documentId) {
+                showResult('document-result', 'Please enter a document ID.', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(API_BASE + `/api/v1/documents/${documentId}/download`, {
+                    headers: authToken ? { 'Authorization': `Bearer ${authToken}` } : {}
+                });
+
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `document_${documentId}`;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                    showResult('document-result', 'Document downloaded successfully!', 'success');
+                } else {
+                    const data = await response.json();
+                    showResult('document-result', `Download failed: ${data.detail || 'Unknown error'}`, 'error');
+                }
+            } catch (error) {
+                showResult('document-result', `Download error: ${error.message}`, 'error');
+            }
+        }
+
+        async function scanDocument() {
+            const documentId = document.getElementById('document-id').value;
+            if (!documentId) {
+                showResult('document-result', 'Please enter a document ID.', 'error');
+                return;
+            }
+
+            showResult('document-result', 'Scanning document for viruses...', 'info');
+
+            try {
+                const response = await makeRequest(`/api/v1/documents/${documentId}/scan`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+
+                if (response.ok) {
+                    showResult('document-result', `Scan initiated successfully!\nScan ID: ${data.scan_id || 'N/A'}`, 'success');
+                } else {
+                    showResult('document-result', `Scan failed: ${data.detail || 'Unknown error'}`, 'error');
+                }
+            } catch (error) {
+                showResult('document-result', `Scan error: ${error.message}`, 'error');
+            }
+        }
+
+        async function deleteDocument() {
+            const documentId = document.getElementById('document-id').value;
+            if (!documentId) {
+                showResult('document-result', 'Please enter a document ID.', 'error');
+                return;
+            }
+
+            if (!confirm('Are you sure you want to delete this document?')) {
+                return;
+            }
+
+            showResult('document-result', 'Deleting document...', 'info');
+
+            try {
+                const response = await makeRequest(`/api/v1/documents/${documentId}`, {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    showResult('document-result', 'Document deleted successfully!', 'success');
+                    // Clear the document ID field
+                    document.getElementById('document-id').value = '';
+                    // Auto-refresh document list
+                    listDocuments();
+                } else {
+                    const data = await response.json();
+                    showResult('document-result', `Delete failed: ${data.detail || 'Unknown error'}`, 'error');
+                }
+            } catch (error) {
+                showResult('document-result', `Delete error: ${error.message}`, 'error');
+            }
+        }
+
+        async function listDocuments() {
+            const tenantId = document.getElementById('list-tenant-id').value;
+            const limit = document.getElementById('list-limit').value;
+            
+            const loadingDiv = document.getElementById('document-list-loading');
+            const listDiv = document.getElementById('document-list');
+            
+            loadingDiv.classList.add('show');
+            listDiv.innerHTML = '';
+
+            try {
+                const params = new URLSearchParams();
+                if (tenantId) params.append('tenant_id', tenantId);
+                if (limit) params.append('limit', limit);
+
+                const response = await makeRequest(`/api/v1/documents?${params}`);
+                const data = await response.json();
+
+                loadingDiv.classList.remove('show');
+
+                if (response.ok) {
+                    if (data.documents && data.documents.length > 0) {
+                        listDiv.innerHTML = data.documents.map(doc => `
+                            <div class="document-item">
+                                <h4>${doc.filename || 'Unknown'}</h4>
+                                <div class="document-meta">
+                                    <div><strong>ID:</strong> ${doc.id}</div>
+                                    <div><strong>Type:</strong> ${doc.document_type || 'Unknown'}</div>
+                                    <div><strong>Size:</strong> ${doc.size ? (doc.size / 1024).toFixed(2) + ' KB' : 'Unknown'}</div>
+                                    <div><strong>Uploaded:</strong> ${doc.created_at ? new Date(doc.created_at).toLocaleString() : 'Unknown'}</div>
+                                    <div><strong>Status:</strong> ${doc.status || 'Unknown'}</div>
+                                    ${doc.description ? `<div><strong>Description:</strong> ${doc.description}</div>` : ''}
+                                </div>
+                                <div class="document-actions">
+                                    <button onclick="viewDocument('${doc.id}')">View</button>
+                                    <button onclick="downloadDocumentById('${doc.id}')" class="btn-warning">Download</button>
+                                    <button onclick="scanDocumentById('${doc.id}')" class="btn-warning">Scan</button>
+                                    <button onclick="deleteDocumentById('${doc.id}')" class="btn-danger">Delete</button>
+                                </div>
+                            </div>
+                        `).join('');
+                    } else {
+                        listDiv.innerHTML = '<div class="document-item">No documents found.</div>';
+                    }
+                } else {
+                    listDiv.innerHTML = `<div class="document-item">Failed to load documents: ${data.detail || 'Unknown error'}</div>`;
+                }
+            } catch (error) {
+                loadingDiv.classList.remove('show');
+                listDiv.innerHTML = `<div class="document-item">Error loading documents: ${error.message}</div>`;
+            }
+        }
+
+        function clearDocumentList() {
+            document.getElementById('document-list').innerHTML = '';
+            document.getElementById('document-list-loading').classList.remove('show');
+        }
+
+        function viewDocument(documentId) {
+            document.getElementById('document-id').value = documentId;
+            getDocument();
+        }
+
+        function downloadDocumentById(documentId) {
+            document.getElementById('document-id').value = documentId;
+            downloadDocument();
+        }
+
+        function scanDocumentById(documentId) {
+            document.getElementById('document-id').value = documentId;
+            scanDocument();
+        }
+
+        function deleteDocumentById(documentId) {
+            document.getElementById('document-id').value = documentId;
+            deleteDocument();
+        }
+
+        async function getMetrics() {
+            showResult('metrics-result', 'Getting metrics...', 'info');
+
+            try {
+                const response = await makeRequest('/metrics');
+                const data = await response.text();
+
+                if (response.ok) {
+                    showResult('metrics-result', data, 'success');
+                } else {
+                    showResult('metrics-result', `Failed to get metrics: ${response.status} ${response.statusText}`, 'error');
+                }
+            } catch (error) {
+                showResult('metrics-result', `Metrics error: ${error.message}`, 'error');
+            }
+        }
+
+        function showResult(elementId, message, type) {
+            const resultDiv = document.getElementById(elementId);
+            resultDiv.textContent = message;
+            resultDiv.className = `result ${type}`;
+            resultDiv.style.display = 'block';
+        }
+
+        function clearResults() {
+            const results = document.querySelectorAll('.result');
+            results.forEach(result => {
+                result.style.display = 'none';
+                result.textContent = '';
+            });
+        }
+
+        // Auto-refresh health status every 30 seconds
+        setInterval(checkHealth, 30000);
+    </script>
+</body>
+</html>
