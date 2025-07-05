@@ -1,0 +1,13 @@
+{
+  "objective": "Complete and validate the document-service microservice. Ensure all tests are written and pass, and that all required code is implemented per CLAUDE.md and specs/service.md.",
+  "strategy": "development",
+  "mode": "centralized",
+  "maxAgents": 4,
+  "timeout": 60,
+  "parallel": true,
+  "monitor": true,
+  "output": "json",
+  "outputDir": "./reports",
+  "timestamp": "2025-07-04T20:40:10.011Z",
+  "id": "swarm-development-centralized-1751661610011"
+}

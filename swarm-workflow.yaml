@@ -1,0 +1,34 @@
+# swarm-workflow.yaml
+mode: swarm
+agents:
+  - name: audit
+    role: code reviewer
+    task: |
+      Review all code and tests. Identify unimplemented functions, missing error handling, or incomplete coverage.
+      Flag any areas that lack tests or don't meet standards from CLAUDE.md.
+
+  - name: testgen
+    role: test engineer
+    task: |
+      Add missing unit tests, edge cases, integration tests for gRPC and REST.
+      Ensure 100% test coverage. Place tests under `tests/`.
+
+  - name: fixer
+    role: backend developer
+    task: |
+      Complete all unfinished code, add any missing handlers, endpoints, and logic needed to make tests pass.
+      Follow system standards in CLAUDE.md.
+
+  - name: ci
+    role: CI agent
+    task: |
+      Run all tests. If anything fails, report it. Rerun `fixer` if required.
+input:
+  - CLAUDE.md
+  - specs/service.md
+  - app/
+  - tests/
+  - proto/
+output:
+  - final/
+

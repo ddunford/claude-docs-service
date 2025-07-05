@@ -163,7 +163,7 @@ class AuditLog(Base):
     # Operation details
     status = Column(String(20), nullable=False)  # success, failure, pending
     error_message = Column(Text, nullable=True)
-    metadata = Column(JSON, default={}, nullable=False)
+    audit_metadata = Column(JSON, default={}, nullable=False)
     
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)

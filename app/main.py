@@ -19,7 +19,11 @@ from prometheus_client import start_http_server
 
 from app.api.grpc_server import create_grpc_server
 from app.api.rest_routes import router as rest_router
+from app.auth.middleware import JWTAuthenticationMiddleware, RateLimitMiddleware
 from app.config import settings
+from app.database import init_db, close_db
+from app.services.event_publisher import event_publisher
+from app.services.redis_client import redis_client
 from app.utils.logging import setup_logging
 
 
@@ -38,6 +42,30 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     start_http_server(settings.PROMETHEUS_PORT)
     logger.info(f"Prometheus metrics server started on port {settings.PROMETHEUS_PORT}")
     
+    # Initialize database
+    try:
+        await init_db()
+        logger.info("Database initialized")
+    except Exception as e:
+        logger.error(f"Failed to initialize database: {e}")
+        raise
+    
+    # Initialize Redis client
+    try:
+        await redis_client.connect()
+        logger.info("Redis client connected")
+    except Exception as e:
+        logger.error(f"Failed to connect Redis client: {e}")
+        # Continue without Redis in development
+    
+    # Initialize event publisher
+    try:
+        await event_publisher.connect()
+        logger.info("Event publisher connected")
+    except Exception as e:
+        logger.error(f"Failed to connect event publisher: {e}")
+        # Continue without event publisher in development
+    
     # Start gRPC server
     grpc_server = create_grpc_server()
     grpc_server.add_insecure_port(f"[::]:{settings.GRPC_PORT}")
@@ -48,6 +76,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     def shutdown_handler(signum, frame):
         logger.info("Received shutdown signal", extra={"signal": signum})
         asyncio.create_task(grpc_server.stop(grace=30))
+        asyncio.create_task(event_publisher.disconnect())
+        asyncio.create_task(redis_client.disconnect())
+        asyncio.create_task(close_db())
     
     signal.signal(signal.SIGINT, shutdown_handler)
     signal.signal(signal.SIGTERM, shutdown_handler)
@@ -57,6 +88,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Shutdown
     logger.info("Shutting down document service")
     await grpc_server.stop(grace=30)
+    await event_publisher.disconnect()
+    await redis_client.disconnect()
+    await close_db()
 
 
 def setup_tracing():
@@ -91,6 +125,24 @@ def create_app() -> FastAPI:
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
+    )
+    
+    # Add rate limiting middleware
+    app.add_middleware(
+        RateLimitMiddleware,
+        requests_per_minute=settings.RATE_LIMIT_REQUESTS,
+    )
+    
+    # Add JWT authentication middleware
+    app.add_middleware(
+        JWTAuthenticationMiddleware,
+        exempt_paths=[
+            "/health",
+            "/metrics",
+            "/docs",
+            "/redoc",
+            "/openapi.json",
+        ],
     )
     
     # Include REST API routes

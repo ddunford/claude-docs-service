@@ -1,0 +1,91 @@
+global:
+  scrape_interval: 30s
+  evaluation_interval: 30s
+  external_labels:
+    monitor: 'document-service-prod'
+    environment: 'production'
+
+rule_files:
+  - "alerts.yml"
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
+
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+    scrape_interval: 60s
+    metrics_path: /metrics
+
+  # Document service metrics - production
+  - job_name: 'document-service'
+    static_configs:
+      - targets: ['app:8001']
+    scrape_interval: 15s
+    metrics_path: /metrics
+    scrape_timeout: 10s
+    honor_labels: true
+
+  # PostgreSQL metrics - production
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+    scrape_interval: 30s
+
+  # Redis metrics - production
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis-exporter:9121']
+    scrape_interval: 30s
+
+  # Node/system metrics - production
+  - job_name: 'node'
+    static_configs:
+      - targets: ['node-exporter:9100']
+    scrape_interval: 30s
+
+  # RabbitMQ metrics - production
+  - job_name: 'rabbitmq'
+    static_configs:
+      - targets: ['rabbitmq:15692']
+    scrape_interval: 30s
+
+  # MinIO metrics - production
+  - job_name: 'minio'
+    static_configs:
+      - targets: ['minio:9000']
+    scrape_interval: 30s
+    metrics_path: /minio/v2/metrics/cluster
+
+# Production recording rules with longer retention
+recording_rules:
+  - name: document_service_production_rules
+    rules:
+      - record: document_service:request_rate_5m
+        expr: rate(http_requests_total[5m])
+      
+      - record: document_service:request_rate_1h
+        expr: rate(http_requests_total[1h])
+      
+      - record: document_service:error_rate_5m
+        expr: rate(http_requests_total{status=~"5.."}[5m])
+      
+      - record: document_service:error_rate_1h
+        expr: rate(http_requests_total{status=~"5.."}[1h])
+      
+      - record: document_service:response_time_95th_5m
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))
+      
+      - record: document_service:response_time_95th_1h
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[1h]))
+      
+      - record: document_service:availability_5m
+        expr: 1 - (rate(http_requests_total{status=~"5.."}[5m]) / rate(http_requests_total[5m]))
+      
+      - record: document_service:availability_1h
+        expr: 1 - (rate(http_requests_total{status=~"5.."}[1h]) / rate(http_requests_total[1h]))

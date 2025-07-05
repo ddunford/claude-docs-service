@@ -55,18 +55,27 @@ class TestDocumentService:
                 endpoint_url=None,
             ))
             
-            # Mock database operations
+            # Mock database operations  
             with patch('app.services.document_service.get_db') as mock_get_db:
                 mock_db = AsyncMock()
-                mock_get_db.return_value.__aenter__.return_value = mock_db
+                mock_db.add = Mock()
+                mock_db.commit = AsyncMock()
+                mock_context = AsyncMock()
+                mock_context.__aenter__ = AsyncMock(return_value=mock_db)
+                mock_context.__aexit__ = AsyncMock(return_value=None)
+                mock_get_db.return_value = mock_context
                 
-                # Execute upload
-                result = await document_service.upload_document(
-                    file_data=sample_file_data,
-                    document_create=sample_document_create,
-                    user_id=user_id,
-                    tenant_id=tenant_id,
-                )
+                # Mock Redis client cleanup
+                with patch('app.services.document_service.redis_client') as mock_redis:
+                    mock_redis.delete_upload_session = AsyncMock(return_value=True)
+                    
+                    # Execute upload
+                    result = await document_service.upload_document(
+                        file_data=sample_file_data,
+                        document_create=sample_document_create,
+                        user_id=user_id,
+                        tenant_id=tenant_id,
+                    )
                 
                 # Verify result
                 assert result.status == UploadStatus.COMPLETED

@@ -8,7 +8,10 @@ import uuid
 
 from app.config import settings
 from app.models.document import ScanStatus, ScanResultType, ThreatSeverity, ScanResult, ThreatDetail
+from app.models.database import ScanResult as DBScanResult, ThreatDetail as DBThreatDetail
 from app.services.redis_client import redis_client
+from app.services.event_publisher import event_publisher
+from app.database import get_db
 from app.utils.logging import get_logger, log_document_event
 
 
@@ -102,6 +105,24 @@ class ClamAVScanner:
                 threats=[threat.dict() for threat in threats],
                 duration_ms=duration_ms,
             )
+            
+            # Store scan result in database
+            try:
+                await self._store_scan_result_db(result)
+            except Exception as e:
+                self.logger.error(f"Failed to store scan result in database: {e}")
+            
+            # Publish scan event
+            try:
+                await event_publisher.publish_document_scanned(
+                    document_id=document_id,
+                    scan_id=scan_id,
+                    result=result_type.value,
+                    threats=[threat.dict() for threat in threats],
+                    tenant_id="system",  # TODO: Get tenant_id from context
+                )
+            except Exception as e:
+                self.logger.warning(f"Failed to publish scan event: {e}")
             
             # Log event
             self.logger.info(f"Virus scan completed: {scan_id}, result: {result_type}")
@@ -277,6 +298,44 @@ class ClamAVScanner:
         except Exception as e:
             self.logger.error(f"ClamAV health check failed: {e}")
             return False
+    
+    async def _store_scan_result_db(self, scan_result: ScanResult) -> None:
+        """Store scan result in database."""
+        try:
+            async with get_db() as db:
+                # Create scan result record
+                db_scan_result = DBScanResult(
+                    id=str(uuid.uuid4()),
+                    document_id=scan_result.document_id,
+                    scan_id=scan_result.scan_id,
+                    status=scan_result.status,
+                    result=scan_result.result,
+                    scanner_version=scan_result.scanner_version,
+                    duration_ms=scan_result.duration_ms,
+                    started_at=scan_result.scanned_at,
+                    completed_at=scan_result.scanned_at,
+                )
+                
+                db.add(db_scan_result)
+                
+                # Create threat detail records
+                for threat in scan_result.threats:
+                    db_threat = DBThreatDetail(
+                        id=str(uuid.uuid4()),
+                        scan_result_id=db_scan_result.id,
+                        name=threat.name,
+                        type=threat.type,
+                        severity=threat.severity,
+                        description=threat.description,
+                    )
+                    db.add(db_threat)
+                
+                await db.commit()
+                self.logger.info(f"Scan result stored in database: {scan_result.scan_id}")
+                
+        except Exception as e:
+            self.logger.error(f"Failed to store scan result in database: {e}")
+            raise
 
 
 # Global scanner instance

@@ -53,7 +53,7 @@ def get_logger(name: str) -> structlog.stdlib.BoundLogger:
 
 def log_document_event(
     logger: structlog.stdlib.BoundLogger,
-    event: str,
+    event_name: str,
     document_id: str,
     tenant_id: str,
     user_id: str,
@@ -62,7 +62,7 @@ def log_document_event(
 ) -> None:
     """Log a document-related event with standard fields."""
     log_data: Dict[str, Any] = {
-        "event": event,
+        "event_type": event_name,
         "document_id": document_id,
         "tenant_id": tenant_id,
         "user_id": user_id,
@@ -73,7 +73,7 @@ def log_document_event(
     if trace_id:
         log_data["trace_id"] = trace_id
     
-    logger.info(event, **log_data)
+    logger.info("Document event", **log_data)
 
 
 def log_error(

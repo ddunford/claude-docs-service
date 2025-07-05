@@ -25,9 +25,13 @@ from app.models.document import (
     VersionHistory,
     StorageLocation,
     StorageBackend as StorageBackendEnum,
+    ScanStatus,
+    ScanResult as ScanResultModel,
+    ThreatDetail,
 )
 from app.storage.factory import get_storage_backend
 from app.services.redis_client import redis_client
+from app.services.event_publisher import event_publisher
 from app.utils.logging import get_logger, log_document_event
 
 
@@ -137,7 +141,7 @@ class DocumentService:
                     tenant_id=tenant_id,
                     request_id=session_id,
                     status="success",
-                    metadata={
+                    audit_metadata={
                         "filename": document_create.filename,
                         "size_bytes": len(file_data),
                         "content_type": document_create.content_type,
@@ -164,6 +168,19 @@ class DocumentService:
                 size_bytes=len(file_data),
             )
             
+            # Publish event
+            try:
+                await event_publisher.publish_document_uploaded(
+                    document_id=document_id,
+                    filename=document_create.filename,
+                    content_type=document_create.content_type,
+                    size_bytes=len(file_data),
+                    owner_id=user_id,
+                    tenant_id=tenant_id,
+                )
+            except Exception as e:
+                self.logger.warning(f"Failed to publish upload event: {e}")
+            
             return UploadResponse(
                 document_id=document_id,
                 status=UploadStatus.COMPLETED,
@@ -187,7 +204,7 @@ class DocumentService:
                     request_id=session_id,
                     status="failure",
                     error_message=str(e),
-                    metadata={
+                    audit_metadata={
                         "filename": document_create.filename,
                         "size_bytes": len(file_data),
                     },
@@ -284,6 +301,31 @@ class DocumentService:
                         ),
                     ))
                 
+                # Get latest scan result if available
+                last_scan = None
+                if document.scan_results:
+                    latest_scan = max(document.scan_results, key=lambda x: x.started_at)
+                    if latest_scan.status == ScanStatus.COMPLETED:
+                        threats = []
+                        for threat in latest_scan.threats:
+                            threats.append(ThreatDetail(
+                                name=threat.name,
+                                type=threat.type,
+                                severity=threat.severity,
+                                description=threat.description,
+                            ))
+                        
+                        last_scan = ScanResultModel(
+                            scan_id=latest_scan.scan_id,
+                            document_id=latest_scan.document_id,
+                            status=latest_scan.status,
+                            result=latest_scan.result,
+                            scanned_at=latest_scan.completed_at or latest_scan.started_at,
+                            duration_ms=latest_scan.duration_ms or 0,
+                            threats=threats,
+                            scanner_version=latest_scan.scanner_version,
+                        )
+                
                 # Create audit log
                 audit_log = AuditLog(
                     id=str(uuid.uuid4()),
@@ -302,7 +344,7 @@ class DocumentService:
                     metadata=metadata,
                     location=location,
                     versions=versions,
-                    last_scan=None,  # TODO: Implement scan results
+                    last_scan=last_scan,
                 )
                 
         except Exception as e:
@@ -380,6 +422,17 @@ class DocumentService:
                     tenant_id,
                     user_id,
                 )
+                
+                # Publish event
+                try:
+                    await event_publisher.publish_document_deleted(
+                        document_id=document_id,
+                        filename=document.filename,
+                        owner_id=user_id,
+                        tenant_id=tenant_id,
+                    )
+                except Exception as e:
+                    self.logger.warning(f"Failed to publish delete event: {e}")
                 
                 return True
                 
